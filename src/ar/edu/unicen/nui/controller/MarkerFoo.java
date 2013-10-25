@@ -32,17 +32,17 @@ import static com.googlecode.javacv.cpp.opencv_core.*;
  *
  * @author Samuel Audet
  */
-public class Marker implements Cloneable {
-    public Marker(int id, double[] corners, double confidence) {
+public class MarkerFoo implements Cloneable {
+    public MarkerFoo(int id, double[] corners, double confidence) {
         this.id = id;
         this.corners = corners;
         this.confidence = confidence;
     }
-    public Marker(int id, double ... corners) {
+    public MarkerFoo(int id, double ... corners) {
         this(id, corners, 1.0);
     }
-    @Override public Marker clone() {
-        return new Marker(id, corners.clone(), confidence);
+    @Override public MarkerFoo clone() {
+        return new MarkerFoo(id, corners.clone(), confidence);
     }
     public int id;
     public double[] corners;
@@ -55,8 +55,8 @@ public class Marker implements Cloneable {
         return hash;
     }
     @Override public boolean equals(Object o) {
-        if (o instanceof Marker) {
-            Marker m = (Marker)o;
+        if (o instanceof MarkerFoo) {
+            MarkerFoo m = (MarkerFoo)o;
             return m.id == id && Arrays.equals(m.corners, corners);
         }
         return false;
@@ -210,11 +210,11 @@ public class Marker implements Cloneable {
             firePropertyChange("checkered", this.checkered, this.checkered = checkered);
         }
     }
-    public static Marker[][] createArray(ArraySettings settings) {
+    public static MarkerFoo[][] createArray(ArraySettings settings) {
         return createArray(settings, 0, 0);
     }
-    public static Marker[][] createArray(ArraySettings settings, double marginx, double marginy) {
-        Marker[] markers = new Marker[settings.rows*settings.columns];
+    public static MarkerFoo[][] createArray(ArraySettings settings, double marginx, double marginy) {
+        MarkerFoo[] markers = new MarkerFoo[settings.rows*settings.columns];
         int id = 0;
         for (int y = 0; y < settings.rows; y++) {
             for (int x = 0; x < settings.columns; x++) {
@@ -222,16 +222,16 @@ public class Marker implements Cloneable {
                 double sy =   settings.sizeY/2;
                 double cx = x*settings.spacingX + sx + marginx;
                 double cy = y*settings.spacingY + sy + marginy;
-                markers[id] = new Marker(id, new double[] {
+                markers[id] = new MarkerFoo(id, new double[] {
                     cx-sx, cy-sy,  cx+sx, cy-sy,  cx+sx, cy+sy,  cx-sx, cy+sy }, 1);
                 id++;
             }
         }
         if (!settings.checkered) {
-            return new Marker[][] { markers };
+            return new MarkerFoo[][] { markers };
         } else {
-            Marker[] markers1 = new Marker[markers.length/2];
-            Marker[] markers2 = new Marker[markers.length/2];
+            MarkerFoo[] markers1 = new MarkerFoo[markers.length/2];
+            MarkerFoo[] markers2 = new MarkerFoo[markers.length/2];
             for (int i = 0; i < markers.length; i++) {
                 int x = i%settings.columns;
                 int y = i/settings.columns;
@@ -241,10 +241,10 @@ public class Marker implements Cloneable {
                     markers1[i/2] = markers[i];
                 }
             }
-            return new Marker[][] { markers2, markers1 };
+            return new MarkerFoo[][] { markers2, markers1 };
         }
     }
-    public static Marker[][] createArray(int rows, int columns, double sizeX, double sizeY,
+    public static MarkerFoo[][] createArray(int rows, int columns, double sizeX, double sizeY,
             double spacingX, double spacingY, boolean checkered, double marginx, double marginy) {
         ArraySettings s = new ArraySettings();
         s.rows      = rows;      s.columns  = columns;
@@ -254,10 +254,10 @@ public class Marker implements Cloneable {
         return createArray(s, marginx, marginy);
     }
 
-    public static void applyWarp(Marker[] markers, CvMat warp) {
+    public static void applyWarp(MarkerFoo[] markers, CvMat warp) {
         CvMat pts = srcPts4x1.get();
 
-        for (Marker m : markers) {
+        for (MarkerFoo m : markers) {
             cvPerspectiveTransform(pts.put(m.corners), pts, warp);
             pts.get(m.corners);
         }

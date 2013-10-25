@@ -33,11 +33,11 @@ import static com.googlecode.javacv.cpp.opencv_imgproc.*;
  *
  * @author Samuel Audet
  */
-public class MarkerDetector {
-    public MarkerDetector(Settings settings) {
+public class MarkerDetectorFoo {
+    public MarkerDetectorFoo(Settings settings) {
         setSettings(settings);
     }
-    public MarkerDetector() {
+    public MarkerDetectorFoo() {
         this(new Settings());
     }
 
@@ -150,7 +150,7 @@ public class MarkerDetector {
 //        System.out.println("ARToolKitPlus compile-time information: " + description);
         tracker.setLoggerFunction(new ArtLogFunction() {
             @Override public void call(String nStr) {
-                Logger.getLogger(MarkerDetector.class.getName()).warning(nStr);
+                Logger.getLogger(MarkerDetectorFoo.class.getName()).warning(nStr);
             }
         });
 
@@ -180,7 +180,7 @@ public class MarkerDetector {
         tracker.setImageProcessingMode(IMAGE_FULL_RES);
     }
 
-    public Marker[] detect(IplImage image, boolean whiteMarkers) {
+    public MarkerFoo[] detect(IplImage image, boolean whiteMarkers) {
         init(image);
 
         if (depth != IPL_DEPTH_8U && channels > 1) {
@@ -206,7 +206,7 @@ public class MarkerDetector {
         ARMarkerInfo markers = new ARMarkerInfo(null);
         tracker.arDetectMarkerLite(thresholdedImage.getByteBuffer(), 128 /*tracker.getThreshold()*/, markers, n);
 //long time3 = System.currentTimeMillis();
-        Marker[] markers2 = new Marker[n[0]];
+        MarkerFoo[] markers2 = new MarkerFoo[n[0]];
         int n2 = 0;
         for (int i = 0; i < n[0] && !markers.isNull(); i++) {
             markers.position(i);
@@ -269,7 +269,7 @@ public class MarkerDetector {
             vertex[4] = corners.position((6-dir)%4).x(); vertex[5] = corners.position((6-dir)%4).y();
             vertex[6] = corners.position((7-dir)%4).x(); vertex[7] = corners.position((7-dir)%4).y();
 
-            markers2[n2++] = new Marker(id, vertex, confidence);
+            markers2[n2++] = new MarkerFoo(id, vertex, confidence);
         }
 //long time4 = System.currentTimeMillis();
 //System.out.println("thresholdTime = " + (time2-time1) + "  detectTime = " + (time3-time2) + "  subPixTime = " + (time4-time3));
@@ -280,8 +280,8 @@ public class MarkerDetector {
         return Arrays.copyOf(markers2, n2);
     }
 
-    public void draw(IplImage image, Marker[] markers) {
-        for (Marker m : markers) {
+    public void draw(IplImage image, MarkerFoo[] markers) {
+        for (MarkerFoo m : markers) {
             int cx = 0, cy = 0;
             for (int i = 0; i < 4; i++) {
                 int x = (int)Math.round(m.corners[i*2  ] * (1<<16));

@@ -4,14 +4,17 @@
  */
 package ar.edu.unicen.nui.views.gl;
 
-import ar.edu.unicen.nui.controller.Marker;
 import ar.edu.unicen.nui.controller.Tile;
+import com.googlecode.javacv.Marker;
+import com.jogamp.opengl.util.awt.TextRenderer;
 //import com.googlecode.javacv.Marker;
 import com.jogamp.opengl.util.gl2.GLUT;
 import com.jogamp.opengl.util.texture.Texture;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
+import java.awt.Font;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.logging.Level;
@@ -43,7 +46,7 @@ public class GLRenderer implements GLEventListener {
         gl2.glLoadIdentity();
         gl2.glMatrixMode(GL2.GL_MODELVIEW);
         gl2.glLoadIdentity();
-        gl2.glScalef(-1.0f, 1.0f, 1.0f); // Mirror
+//        gl2.glScalef(-1.0f, 1.0f, 1.0f); // Mirror
     }
 
     @Override
@@ -66,11 +69,11 @@ public class GLRenderer implements GLEventListener {
         gl2.glClear(GL2.GL_DEPTH_BUFFER_BIT | GL2.GL_COLOR_BUFFER_BIT);
         
         if (backgroundImage != null) {
-            renderBackgroundImage(gl2);
-            renderMarkers(gl2);
-                drawTeapot(gl2);
+            renderBackgroundImage(glad);
+            renderMarkers(glad);
+            drawTeapot(glad);
         } else {
-            renderWaitingForCamera(gl2);
+            renderWaitingForCamera(glad);
         }
 
     }
@@ -84,7 +87,8 @@ public class GLRenderer implements GLEventListener {
     }
     
 
-    public void renderWaitingForCamera(GL2 gl2) {
+    public void renderWaitingForCamera(GLAutoDrawable glad) {
+        GL2 gl2 = glad.getGL().getGL2();
         try {
             if (waitingForCameraTexture == null)
                 waitingForCameraTexture = AWTTextureIO.newTexture(gl2.getGLProfile(), ImageIO.read(getClass().getResource("resources/camera-icon.png")), false);
@@ -98,14 +102,16 @@ public class GLRenderer implements GLEventListener {
         }
     }
     
-    public void renderBackgroundImage(GL2 gl2) {
+    public void renderBackgroundImage(GLAutoDrawable glad) {
+        GL2 gl2 = glad.getGL().getGL2();
         Texture backgroundTexture;
         backgroundTexture = AWTTextureIO.newTexture(gl2.getGLProfile(), backgroundImage, false);
         drawTexture(gl2, backgroundTexture);
         backgroundTexture.destroy(gl2);
     }
     
-    private void renderMarkers(GL2 gl2) {        
+    private void renderMarkers(GLAutoDrawable glad) {
+        GL2 gl2 = glad.getGL().getGL2();
         // Reset transformations
         gl2.glMatrixMode(GL2.GL_MODELVIEW);
         gl2.glPushMatrix();
@@ -128,8 +134,12 @@ public class GLRenderer implements GLEventListener {
             gl2.glColor3fv(colours.get(marker.id), 0);
 
             gl2.glBegin(GL2.GL_LINE_STRIP);
+
+            gl2.glColor3fv(new float[]{1.0f, 0.0f, 0.0f}, 0);
             gl2.glVertex3d(marker.corners[0], marker.corners[1], 1.0d);
             gl2.glVertex3d(marker.corners[2], marker.corners[3], 1.0d);
+
+            gl2.glColor3fv(colours.get(marker.id), 0);
             gl2.glVertex3d(marker.corners[4], marker.corners[5], 1.0d);
             gl2.glVertex3d(marker.corners[6], marker.corners[7], 1.0d);
             gl2.glVertex3d(marker.corners[0], marker.corners[1], 1.0d);
@@ -141,8 +151,14 @@ public class GLRenderer implements GLEventListener {
 
             gl2.glBegin(GL2.GL_LINES);            
             gl2.glVertex3f(tile.getCenterX(), tile.getCenterY(), 1.0f);
-            gl2.glVertex3f(tile.getCenterX() + tile.getUpX() * 20.0f, tile.getCenterY() + tile.getUpY() + 20.0f, 1.0f);
+            gl2.glVertex3f(tile.getCenterX() + tile.getUpX(), tile.getCenterY() + tile.getUpY(), 1.0f);
             gl2.glEnd();
+            
+            TextRenderer renderer = new TextRenderer(new Font("SansSerif", Font.BOLD, 16));
+            renderer.beginRendering(glad.getWidth(), glad.getHeight());
+            renderer.setColor(1.0f, 0.2f, 0.2f, 0.8f);
+            renderer.draw(Double.toString(tile.getAngle()), (int) tile.getCenterX(), glad.getHeight() - (int) tile.getCenterY());
+            renderer.endRendering();
         }
 
         gl2.glPopMatrix();
@@ -179,7 +195,8 @@ public class GLRenderer implements GLEventListener {
         gl2.glPopMatrix();
     }
     
-    private void drawTeapot(GL2 gl2) {
+    private void drawTeapot(GLAutoDrawable glad) {
+        GL2 gl2 = glad.getGL().getGL2();
         // Set projection
         gl2.glMatrixMode(GL2.GL_PROJECTION);
         gl2.glPushMatrix();
@@ -226,8 +243,8 @@ public class GLRenderer implements GLEventListener {
         gl2.glPopMatrix();
     }
 
-    void setTiles(HashSet<Tile> tiles) {
-        this.tiles = tiles;
+    void setTiles(Collection<Tile> tiles) {
+        this.tiles = new HashSet<Tile>(tiles);
     }
 
 }
