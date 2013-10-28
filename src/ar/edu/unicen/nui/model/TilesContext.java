@@ -2,16 +2,14 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package ar.edu.unicen.nui.controller;
+package ar.edu.unicen.nui.model;
 
-import ar.edu.unicen.nui.model.Model;
-import ar.edu.unicen.nui.model.ModelItem;
 import com.googlecode.javacv.Marker;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-//import com.googlecode.javacv.Marker;
 
 /**
  *
@@ -19,29 +17,15 @@ import java.util.Map;
  */
 public class TilesContext {
     
+    private Model model;
     private HashMap<Integer, Tile> tiles;
-    private Marker[] markers;
     
-    private class UnknownTrackerIDException extends Exception {
-        
-    }
-    
-    private ModelItem buildItemFromId(int id) throws UnknownTrackerIDException {
-        if (id < 4) { // IDs 0, 1, 2, 3 are tracks
-//            return new TrackItem();
-        }
-        throw new UnknownTrackerIDException();
-    }
-    
-
-    public TilesContext() {
+    public TilesContext(Model model) {
+        this.model = model;
         tiles = new HashMap<Integer, Tile>();
     }
     
     public void update(Marker[] markers) {
-        
-        this.markers = markers;
-        
         for (Marker marker: markers) {
             if (tiles.containsKey(marker.id)) {
                 tiles.get(marker.id).syncToMarker(marker);
@@ -60,26 +44,13 @@ public class TilesContext {
             tiles.remove(i);
         }
     }
-    
-    public void updateModel(Model model) {
-        for (Tile t: tiles.values()) {
-            try {
-                if (!model.hasItem(t.getId()))
-                    model.putItem(t.getId(), buildItemFromId(t.getId()));
-                model.getItem(t.getId()).setPosition(t.getCenterX(), t.getCenterY());
-                model.getItem(t.getId()).setRotation(t.getAngle());
-            } catch (UnknownTrackerIDException e) {
-                
-            }
-        }
-    }
 
     public Collection<Tile> getTiles() {
         return tiles.values();
     }
-
-    public Marker[] getMarkers() {
-        return markers;
+    
+    public Tile getTile(int i) {
+        return tiles.get(i);
     }
     
 }

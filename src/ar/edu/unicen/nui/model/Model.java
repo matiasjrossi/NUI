@@ -4,56 +4,56 @@
  */
 package ar.edu.unicen.nui.model;
 
-import ar.edu.unicen.nui.common.EventSource;
-import java.util.HashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
+import com.googlecode.javacv.Marker;
+import java.util.ArrayList;
 
 /**
  *
  * @author matias
  */
-public class Model extends EventSource {
+public class Model {
     
-    public enum Events implements EventType {
-        
-    };
-    
-    public static final int NUMBER_OF_TRACKS = 4;
-    public static final String[] TRACK_NAMES = new String[]{"green", "blue", "red", "yellow"};
-    
-    private HashMap<Integer, ModelItem> items;
-    private HashMap<Integer, String> tracksFilenames;
-        
+    private TracksContext tracksContext;
+    private TilesContext tilesContext;
+    private int width, height;
+
     public Model() {
-        items = new HashMap<Integer, ModelItem>();
-        tracksFilenames = new HashMap<Integer, String>();
+        tracksContext = new TracksContext(this);
+        tilesContext = new TilesContext(this);
+    }
+
+    public void update(int width, int height, Marker[] markers) {
+        this.width = width;
+        this.height = height;        
+        tilesContext.update(markers);
+        tracksContext.update(tilesContext);
+    }
+
+    public TracksContext getTracksContext() {
+        return tracksContext;
+    }
+
+    public TilesContext getTilesContext() {
+        return tilesContext;
     }
     
-    public boolean hasItem(int i) {
-        return items.containsKey(i);
-    }
-    
-    public ModelItem getItem(int i) {
-        return items.get(i);
-    }
-    
-    public void putItem(int i, ModelItem item) {
-        items.put(i, item);
-    }
-    
-    public String getTrackFilename(int i) {
-        if (i >= NUMBER_OF_TRACKS)
-            Logger.getLogger(Model.class.getName()).log(Level.WARNING, "Index " + i + " is out of bounds");
-        return tracksFilenames.get(i);
-    }
-    
-    public void setTrackFilename(int i, String filename) {
-        if (i >= NUMBER_OF_TRACKS) {
-            Logger.getLogger(Model.class.getName()).log(Level.WARNING, "Index " + i + " is out of bounds");
-            return;
+    public ArrayList<Integer> effectAssociatedTracks(Tile effectTile) {
+        ArrayList<Integer> tracks = new ArrayList<Integer>();
+        for (int track: ModelConstants.TRACK_IDS) {
+            if (tracksContext.isTrackSet(track)) {
+                Tile trackTile = tilesContext.getTile(track);
+                if ((
+                        ((trackTile.getCenterX() < width/2) && (effectTile.getCenterX() < trackTile.getCenterX())) ||
+                        ((trackTile.getCenterX() > width/2) && (effectTile.getCenterX() > trackTile.getCenterX()))
+                    ) && (
+                        ((trackTile.getCenterY() < height/2) && (effectTile.getCenterY() < trackTile.getCenterY())) ||
+                        ((trackTile.getCenterY() > height/2) && (effectTile.getCenterY() > trackTile.getCenterY()))         
+                   )) {
+                    tracks.add(track);
+                }
+            }
         }
-        tracksFilenames.put(i, filename);
+        return tracks;
     }
+
 }

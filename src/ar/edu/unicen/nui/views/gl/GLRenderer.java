@@ -4,16 +4,16 @@
  */
 package ar.edu.unicen.nui.views.gl;
 
-import ar.edu.unicen.nui.controller.Tile;
-import com.googlecode.javacv.Marker;
+import ar.edu.unicen.nui.model.Tile;
 import com.jogamp.opengl.util.awt.TextRenderer;
-//import com.googlecode.javacv.Marker;
 import com.jogamp.opengl.util.gl2.GLUT;
 import com.jogamp.opengl.util.texture.Texture;
 import com.jogamp.opengl.util.texture.awt.AWTTextureIO;
+import java.awt.Color;
 import java.awt.Font;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -23,6 +23,7 @@ import javax.imageio.ImageIO;
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.GLEventListener;
+import javax.swing.JFrame;
 
 /**
  *
@@ -30,22 +31,70 @@ import javax.media.opengl.GLEventListener;
  */
 public class GLRenderer implements GLEventListener {
     
-    private BufferedImage backgroundImage;
-    private Texture waitingForCameraTexture;
-    private Marker[] detectedMarkers;
-    private HashMap<Integer, float[]> colours;
+    private JFrame parentFrame;
+    private BufferedImage lastCapturedFrame;
+    private ArrayList<BufferedImage> lastAvailableFrames;
+    private Texture waitingForCameraTexture, noCameraTexture;
+//    private Marker[] detectedMarkers;
+    private HashMap<Integer, Color> colors;
     private HashSet<Tile> tiles;
-    
+    private Mode mode;
     private int width, height;
+    private boolean autoResizeOnNextFrame;
+    
+    public enum Mode {WAITING_FOR_DEVICE, DEVICE_SELECTOR, NO_DEVICES_AVAILABLE, READY}; 
 
+    public GLRenderer(JFrame parentFrame) {
+        this.parentFrame = parentFrame;
+        this.autoResizeOnNextFrame = false;
+        mode = Mode.WAITING_FOR_DEVICE;
+        colors = new HashMap<Integer, Color>();
+    }
+
+    /* Public interface */
+    public void setMode(Mode mode) {
+        this.mode = mode;
+    }
+    
+    public void setLastCapturedFrame(BufferedImage lastCapturedFrame) {
+        this.lastCapturedFrame = lastCapturedFrame;
+        if (autoResizeOnNextFrame) {
+            parentFrame.setSize(this.lastCapturedFrame.getWidth(), this.lastCapturedFrame.getHeight());
+            autoResizeOnNextFrame = false;
+        }
+    }
+
+    public void setLastAvailableFrames(ArrayList<BufferedImage> lastAvailableFrames) {
+        this.lastAvailableFrames = lastAvailableFrames;
+    }
+    
+    public void setTiles(Collection<Tile> tiles) {
+        this.tiles = new HashSet<Tile>(tiles);
+    }
+    
+    public void setAutoResizeOnNextFrame(boolean resize) {
+        autoResizeOnNextFrame = resize;
+    }
+
+//    public void setDetectedMarkers(Marker[] detectedMarkers) {
+//        this.detectedMarkers = detectedMarkers;
+//    }
+    
+    
+    /* Internal Events */
     @Override
     public void init(GLAutoDrawable glad) {
         GL2 gl2 = glad.getGL().getGL2();
-        colours = new HashMap<Integer, float[]>();
         gl2.glMatrixMode(GL2.GL_PROJECTION);
         gl2.glLoadIdentity();
         gl2.glMatrixMode(GL2.GL_MODELVIEW);
         gl2.glLoadIdentity();
+        try {
+            waitingForCameraTexture = AWTTextureIO.newTexture(gl2.getGLProfile(), ImageIO.read(getClass().getResource("resources/waiting-for-camera.png")), false);
+            noCameraTexture = AWTTextureIO.newTexture(gl2.getGLProfile(), ImageIO.read(getClass().getResource("resources/no-camera.png")), false);
+        } catch (IOException ex) {
+            Logger.getLogger(GLRenderer.class.getName()).log(Level.SEVERE, "Failed to load textures", ex);
+        }
 //        gl2.glScalef(-1.0f, 1.0f, 1.0f); // Mirror
     }
 
@@ -68,49 +117,44 @@ public class GLRenderer implements GLEventListener {
         GL2 gl2 = glad.getGL().getGL2();
         gl2.glClear(GL2.GL_DEPTH_BUFFER_BIT | GL2.GL_COLOR_BUFFER_BIT);
         
-        if (backgroundImage != null) {
-            renderBackgroundImage(glad);
-            renderMarkers(glad);
-            drawTeapot(glad);
-        } else {
-            renderWaitingForCamera(glad);
+        switch (mode) {
+            case WAITING_FOR_DEVICE:
+                renderMessageFromTexture(glad, waitingForCameraTexture);
+                break;
+            case DEVICE_SELECTOR:
+                break;
+            case NO_DEVICES_AVAILABLE:
+                renderMessageFromTexture(glad, noCameraTexture);
+                break;
+            case READY:
+                renderBackgroundImage(glad);
+                renderTiles(glad);
+                drawTeapot(glad);
+                break;
         }
-
     }
+
+    /***************/
     
-    public void setBackgroundImage(BufferedImage image) {
-        this.backgroundImage = image;
-    }
-
-    public void setDetectedMarkers(Marker[] detectedMarkers) {
-        this.detectedMarkers = detectedMarkers;
-    }
-    
-
-    public void renderWaitingForCamera(GLAutoDrawable glad) {
+    /* Rendering methods */
+    private void renderMessageFromTexture(GLAutoDrawable glad, Texture texture) {
         GL2 gl2 = glad.getGL().getGL2();
-        try {
-            if (waitingForCameraTexture == null)
-                waitingForCameraTexture = AWTTextureIO.newTexture(gl2.getGLProfile(), ImageIO.read(getClass().getResource("resources/camera-icon.png")), false);
-            gl2.glMatrixMode(GL2.GL_MODELVIEW);
-            gl2.glPushMatrix();
-            gl2.glLoadIdentity();
-            drawTexture(gl2, waitingForCameraTexture);
-            gl2.glPopMatrix();
-        } catch (IOException ex) {
-            Logger.getLogger(GLRenderer.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        gl2.glMatrixMode(GL2.GL_MODELVIEW);
+        gl2.glPushMatrix();
+        gl2.glLoadIdentity();
+        drawTexture(gl2, texture);
+        gl2.glPopMatrix();
     }
     
-    public void renderBackgroundImage(GLAutoDrawable glad) {
+    private void renderBackgroundImage(GLAutoDrawable glad) {
         GL2 gl2 = glad.getGL().getGL2();
         Texture backgroundTexture;
-        backgroundTexture = AWTTextureIO.newTexture(gl2.getGLProfile(), backgroundImage, false);
+        backgroundTexture = AWTTextureIO.newTexture(gl2.getGLProfile(), lastCapturedFrame, false);
         drawTexture(gl2, backgroundTexture);
         backgroundTexture.destroy(gl2);
     }
     
-    private void renderMarkers(GLAutoDrawable glad) {
+    private void renderTiles(GLAutoDrawable glad) {
         GL2 gl2 = glad.getGL().getGL2();
         // Reset transformations
         gl2.glMatrixMode(GL2.GL_MODELVIEW);
@@ -128,26 +172,28 @@ public class GLRenderer implements GLEventListener {
                 GL2.GL_ENABLE_BIT);
         gl2.glDisable(GL2.GL_LIGHTING);
 
-        for (Marker marker: detectedMarkers) {
-            if (!colours.containsKey(marker.id))
-                colours.put(marker.id, new float[]{(float)Math.random(), (float)Math.random(), (float)Math.random()});
-            gl2.glColor3fv(colours.get(marker.id), 0);
-
-            gl2.glBegin(GL2.GL_LINE_STRIP);
-
-            gl2.glColor3fv(new float[]{1.0f, 0.0f, 0.0f}, 0);
-            gl2.glVertex3d(marker.corners[0], marker.corners[1], 1.0d);
-            gl2.glVertex3d(marker.corners[2], marker.corners[3], 1.0d);
-
-            gl2.glColor3fv(colours.get(marker.id), 0);
-            gl2.glVertex3d(marker.corners[4], marker.corners[5], 1.0d);
-            gl2.glVertex3d(marker.corners[6], marker.corners[7], 1.0d);
-            gl2.glVertex3d(marker.corners[0], marker.corners[1], 1.0d);
-            gl2.glEnd();
-        }
+//        for (Marker marker: detectedMarkers) {
+//            if (!colors.containsKey(marker.id))
+//                colous.put(marker.id, new Color((float)Math.random(), (float)Math.random(), (float)Math.random()));
+//            gl2.glColor3fv(colors.get(marker.id).getComponents(null), 0);
+//
+//            gl2.glBegin(GL2.GL_LINE_STRIP);
+//
+//            gl2.glColor3fv(new float[]{1.0f, 0.0f, 0.0f}, 0);
+//            gl2.glVertex3d(marker.corners[0], marker.corners[1], 1.0d);
+//            gl2.glVertex3d(marker.corners[2], marker.corners[3], 1.0d);
+//
+//            gl2.glColor3fv(colours.get(marker.id), 0);
+//            gl2.glVertex3d(marker.corners[4], marker.corners[5], 1.0d);
+//            gl2.glVertex3d(marker.corners[6], marker.corners[7], 1.0d);
+//            gl2.glVertex3d(marker.corners[0], marker.corners[1], 1.0d);
+//            gl2.glEnd();
+//        }
         
         for (Tile tile: tiles) {
-            gl2.glColor3fv(colours.get(tile.getId()), 0);
+            if (!colors.containsKey(tile.getId()))
+                colors.put(tile.getId(), new Color((float)Math.random(), (float)Math.random(), (float)Math.random()));
+            gl2.glColor3fv(colors.get(tile.getId()).getComponents(null), 0);
 
             gl2.glBegin(GL2.GL_LINES);            
             gl2.glVertex3f(tile.getCenterX(), tile.getCenterY(), 1.0f);
@@ -156,8 +202,9 @@ public class GLRenderer implements GLEventListener {
             
             TextRenderer renderer = new TextRenderer(new Font("SansSerif", Font.BOLD, 16));
             renderer.beginRendering(glad.getWidth(), glad.getHeight());
-            renderer.setColor(1.0f, 0.2f, 0.2f, 0.8f);
-            renderer.draw(Double.toString(tile.getAngle()), (int) tile.getCenterX(), glad.getHeight() - (int) tile.getCenterY());
+            renderer.setColor(colors.get(tile.getId()));
+            renderer.draw(Double.toString(tile.getAngle()), (int) (tile.getCenterX() + tile.getUpX()), glad.getHeight() - (int) (tile.getCenterY() + tile.getUpY()));
+            renderer.draw("(" + tile.getId() + ")", (int) tile.getCenterX(), glad.getHeight() - (int) tile.getCenterY());
             renderer.endRendering();
         }
 
@@ -176,7 +223,7 @@ public class GLRenderer implements GLEventListener {
         texture.bind(gl2);
         
         float horizontalRatio = (float) texture.getWidth() / (float) width;
-        float verticalRatio = (float) texture.getHeight()/ (float) height;
+        float verticalRatio = (float) texture.getHeight() / (float) height;
         
         // Render the texture
         gl2.glBegin(GL2.GL_QUADS);
@@ -241,10 +288,6 @@ public class GLRenderer implements GLEventListener {
         gl2.glPopMatrix();
         gl2.glMatrixMode(GL2.GL_PROJECTION);
         gl2.glPopMatrix();
-    }
-
-    void setTiles(Collection<Tile> tiles) {
-        this.tiles = new HashSet<Tile>(tiles);
     }
 
 }

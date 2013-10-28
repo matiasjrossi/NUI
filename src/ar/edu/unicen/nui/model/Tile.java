@@ -2,19 +2,18 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package ar.edu.unicen.nui.controller;
+package ar.edu.unicen.nui.model;
 
 //import com.googlecode.javacv.Marker;
 
 import com.googlecode.javacv.Marker;
-import java.util.Arrays;
 
 
 /**
  *
  * @author matias
  */
-public final class Tile {
+public final class Tile implements Comparable<Tile>{
     
     private static final int TILE_LIFETIME = 10;
     
@@ -56,6 +55,7 @@ public final class Tile {
                 angle = (float)  (Math.PI - angle);
             }
         }
+        angle *= -1.0;
     }
 
     public float getAngle() {
@@ -89,17 +89,22 @@ public final class Tile {
     public boolean isAlive() {
         return (this.remainingLifetime > 0);
     }
-//    
-//    @Override
-//    public int hashCode() {
-//        return id;
-//    }
-//    
-//    @Override
-//    public boolean equals(Object o) {
-//        if (o == this) return true;
-//        if (!(o instanceof Tile)) return false;
-//        return (((Tile)o).id == this.id);
-//    }
+    
+    @Override
+    public int hashCode() {
+        return id;
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (o == this) return true;
+        if (!(o instanceof Tile)) return false;
+        return (((Tile)o).id == this.id);
+    }
+
+    @Override
+    public int compareTo(Tile t) {
+        return (this.id - t.id);
+    }
 
 }
