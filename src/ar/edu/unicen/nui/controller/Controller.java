@@ -6,15 +6,8 @@ package ar.edu.unicen.nui.controller;
 
 import ar.edu.unicen.nui.common.EventSource;
 import ar.edu.unicen.nui.model.Model;
-import com.googlecode.javacv.FrameGrabber;
-import com.googlecode.javacv.Marker;
 import com.googlecode.javacv.MarkerDetector;
-import com.googlecode.javacv.OpenCVFrameGrabber;
-import com.googlecode.javacv.cpp.opencv_core.IplImage;
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -25,60 +18,68 @@ public class Controller extends EventSource {
     private static int CAPTURES_PER_SECOND = 10;
     private Model model;
     private Looper controlLooper;
-    private FrameGrabber grabber;
-    private boolean isGrabberStarted;
-    private ArrayList<FrameGrabber> availableGrabbers;
-    private ArrayList<BufferedImage> availableCaptures;
     private MarkerDetector markerDetector;
-    private BufferedImage lastCapturedFrame;
+    private Camera camera;
     private boolean terminated;
-    
+    private boolean paused;
+
     public static enum Events implements EventSource.EventType {
+        ON_FRAME_CAPTURED,
         ON_FRAME_PROCESSED,
-        ON_DEVICE_SELECTOR_FRAME_PROCESSED,
-        ON_DEVICE_SELECTED,
-        ON_NO_DEVICES_DETECTED,
-        ON_START,
-        ON_TERMINATE
+        ON_RUN,
+        ON_READY,
+        ON_PAUSED,
+        ON_RESUMED,
+        ON_TERMINATING,
+        ON_TERMINATED
     };
 
     /* Public interface */
     public void run() {
+        fireEvent(Events.ON_RUN);
         controlLooper.run();
-        fireEvent(Events.ON_START);
     }
     
     public void terminate() {
         this.terminated = true;
-        fireEvent(Events.ON_TERMINATE);
-    }
-
-    public BufferedImage getLastCapturedFrame() {
-        return lastCapturedFrame;
-    }
-    
-    public ArrayList<BufferedImage> getLastAvailableFrames() {
-        return availableCaptures;
+        fireEvent(Events.ON_TERMINATING);
     }
 
     public Model getModel() {
         return model;
     }
     
-    public void selectDevice(int i) {
-        grabber = availableGrabbers.get(i);
-        availableGrabbers.clear();
-        availableCaptures.clear();
-        fireEvent(Events.ON_DEVICE_SELECTED);
+    public synchronized void resumeProcessing() {
+        paused = false;
+        fireEvent(Events.ON_RESUMED);
     }
-
-
+    
+    public synchronized void pauseProcessing() {
+        paused = true;
+        fireEvent(Events.ON_PAUSED);
+    }
+    
+    public synchronized void switchDevice(int device) {
+        if (!paused)
+            throw new IllegalStateException("Controller must be paused to switch devices");
+        else
+            camera.setActiveDevice(device);
+    }
+    
+    public synchronized int getDeviceCount() {
+        return camera.deviceCount();
+    }
+    
+    public synchronized BufferedImage getLastCapturedFrame() {
+        return camera.getLastCapturedFrame();
+    }
+    
     /*****************/
     public Controller(Model model) {
         this.model = model;
         markerDetector = new MarkerDetector();
         terminated = false;
-        isGrabberStarted = false;
+        paused = true;
         prepareControlLoop();
     }
         
@@ -86,41 +87,13 @@ public class Controller extends EventSource {
         controlLooper = new Looper(CAPTURES_PER_SECOND, new Loop() {
             @Override
             public void init() {
-                availableGrabbers = new ArrayList<FrameGrabber>();
-                availableCaptures = new ArrayList<BufferedImage>();
-                while (true) {
-                    try {
-                        Logger.getLogger(Controller.class.getName()).log(Level.INFO, "Attempting to capture from device " + availableGrabbers.size());
-                        FrameGrabber aux = OpenCVFrameGrabber.createDefault(availableGrabbers.size());
-                        aux.start();
-                        IplImage frame = aux.grab();
-                        availableCaptures.add(frame.getBufferedImage());
-//                        frame.release();
-                        aux.stop();
-                        availableGrabbers.add(aux);
-                    } catch (FrameGrabber.Exception ex) {
-                        Logger.getLogger(Controller.class.getName()).log(Level.INFO, "Detected " + availableGrabbers.size() + " cameras.");
-                        break;
-                    }
-                };
-                switch (availableGrabbers.size()) {
-                    case 0: // No cameras detected
-                        fireEvent(Events.ON_NO_DEVICES_DETECTED);
-                        break;
-                    case 1: // Single camera
-                        selectDevice(0);
-                        break;
-                    default:
-                        break;
-                }
+                camera = new Camera();
+                fireEvent(Events.ON_READY);
             }
 
             @Override
             public void loop() {
-                if (grabber != null)
-                    processFrame();
-                else if (availableGrabbers.size() != 0)
-                    processDeviceSelectorFrame();
+                processFrame();
             }
 
             @Override
@@ -130,51 +103,19 @@ public class Controller extends EventSource {
 
             @Override
             public void end() {
-                if (grabber != null) {
-                    try {
-                        grabber.stop();
-                    } catch (FrameGrabber.Exception ex) {
-                        Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, "Failed to stop grabber", ex);
-                    }
-                }
+                camera.release();
+                fireEvent(Events.ON_TERMINATED);
             }
         });
     }
 
-    private void processDeviceSelectorFrame() {
-        for (int i = 0; i < availableGrabbers.size(); ++i) {
-            try {
-                availableGrabbers.get(i).start();
-                IplImage frame = availableGrabbers.get(i).grab();
-                availableCaptures.set(i, frame.getBufferedImage());
-                availableGrabbers.get(i).stop();
-            } catch (FrameGrabber.Exception ex) {
-                Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, "Failed to capture from grabber " + i, ex);
-            }
-        }
-        fireEvent(Events.ON_DEVICE_SELECTOR_FRAME_PROCESSED);
-    }
-    
-    private void processFrame() {
-        try {
-            if (!isGrabberStarted) {
-                grabber.start();
-                isGrabberStarted = true;
-            }
-            IplImage image = grabber.grab();
-            Marker[] markers = markerDetector.detect(image, false);
-    //        for (Marker marker: markers) {
-    //            marker.draw(image, CvScalar.CYAN, 1.0f, null);
-    //        }
-    //        markerDetector.draw(image, markers);
-            lastCapturedFrame = image.getBufferedImage();
-            model.update(image.width(), image.height(), markers);
+    private synchronized void processFrame() {
+        camera.capture();
+        fireEvent(Events.ON_FRAME_CAPTURED);
+        if (!paused) {
+            model.update(camera.getFrameWidth(), camera.getFrameHeight(), 
+                    markerDetector.detect(camera.getIplImage(), false));
             fireEvent(Events.ON_FRAME_PROCESSED);
-        } catch (FrameGrabber.Exception ex) {
-            Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, "Failed to process frame", ex);
         }
-
     }
-
-
 }

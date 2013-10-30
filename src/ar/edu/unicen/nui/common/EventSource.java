@@ -6,6 +6,8 @@ package ar.edu.unicen.nui.common;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
@@ -28,10 +30,13 @@ public abstract class EventSource{
     }
     
     public void fireEvent(EventType event) {
+//        Logger.getLogger(EventSource.class.getName()).log(Level.INFO, "fired event: " + event);
+        if (!suscribers.containsKey(event)) return;
         try {
             for (EventListener listener: suscribers.get(event))
                 listener.handleEvent();
         } catch (Exception ex) {
+            Logger.getLogger(EventSource.class.getName()).log(Level.SEVERE, "Failed to notify listener(s) of " + event);
         }
     }    
 

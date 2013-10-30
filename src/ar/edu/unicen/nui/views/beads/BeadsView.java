@@ -25,14 +25,14 @@ public class BeadsView {
     }
     
     private void suscribeEventHandlers(){
-        controller.addListener(Controller.Events.ON_START, new EventListener() {
+        controller.addListener(Controller.Events.ON_RESUMED, new EventListener() {
             @Override
             public void handleEvent() {
                 audioContext.start();
             }
         });
         
-        controller.addListener(Controller.Events.ON_TERMINATE, new EventListener() {
+        controller.addListener(Controller.Events.ON_PAUSED, new EventListener() {
             @Override
             public void handleEvent() {
                 audioContext.stop();

@@ -3,7 +3,7 @@ package ar.edu.unicen.nui;
 import ar.edu.unicen.nui.controller.Controller;
 import ar.edu.unicen.nui.model.Model;
 import ar.edu.unicen.nui.views.beads.BeadsView;
-import ar.edu.unicen.nui.views.gl.GLViewFactory;
+import ar.edu.unicen.nui.views.gl.GLView;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.logging.Handler;
@@ -30,7 +30,7 @@ public class Main {
         
         Model model = new Model();
         Controller controller = new Controller(model);
-        GLViewFactory.makeGLView(controller, FRAMES_PER_SECOND);
+        new GLView(controller, FRAMES_PER_SECOND);
         BeadsView beadsView = new BeadsView(controller);
         controller.run();
         System.exit(0);

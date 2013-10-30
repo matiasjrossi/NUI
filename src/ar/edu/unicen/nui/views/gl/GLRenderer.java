@@ -23,7 +23,6 @@ import javax.imageio.ImageIO;
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLAutoDrawable;
 import javax.media.opengl.GLEventListener;
-import javax.swing.JFrame;
 
 /**
  *
@@ -31,7 +30,6 @@ import javax.swing.JFrame;
  */
 public class GLRenderer implements GLEventListener {
     
-    private JFrame parentFrame;
     private BufferedImage lastCapturedFrame;
     private ArrayList<BufferedImage> lastAvailableFrames;
     private Texture waitingForCameraTexture, noCameraTexture;
@@ -40,13 +38,10 @@ public class GLRenderer implements GLEventListener {
     private HashSet<Tile> tiles;
     private Mode mode;
     private int width, height;
-    private boolean autoResizeOnNextFrame;
     
     public enum Mode {WAITING_FOR_DEVICE, DEVICE_SELECTOR, NO_DEVICES_AVAILABLE, READY}; 
 
-    public GLRenderer(JFrame parentFrame) {
-        this.parentFrame = parentFrame;
-        this.autoResizeOnNextFrame = false;
+    public GLRenderer() {
         mode = Mode.WAITING_FOR_DEVICE;
         colors = new HashMap<Integer, Color>();
     }
@@ -58,10 +53,6 @@ public class GLRenderer implements GLEventListener {
     
     public void setLastCapturedFrame(BufferedImage lastCapturedFrame) {
         this.lastCapturedFrame = lastCapturedFrame;
-        if (autoResizeOnNextFrame) {
-            parentFrame.setSize(this.lastCapturedFrame.getWidth(), this.lastCapturedFrame.getHeight());
-            autoResizeOnNextFrame = false;
-        }
     }
 
     public void setLastAvailableFrames(ArrayList<BufferedImage> lastAvailableFrames) {
@@ -72,10 +63,6 @@ public class GLRenderer implements GLEventListener {
         this.tiles = new HashSet<Tile>(tiles);
     }
     
-    public void setAutoResizeOnNextFrame(boolean resize) {
-        autoResizeOnNextFrame = resize;
-    }
-
 //    public void setDetectedMarkers(Marker[] detectedMarkers) {
 //        this.detectedMarkers = detectedMarkers;
 //    }
@@ -127,8 +114,27 @@ public class GLRenderer implements GLEventListener {
                 renderMessageFromTexture(glad, noCameraTexture);
                 break;
             case READY:
+                // Set projection
+                gl2.glMatrixMode(GL2.GL_PROJECTION);
+                gl2.glPushMatrix();
+                float horizontalScale = Math.max(
+                        ((float) width * (float) lastCapturedFrame.getHeight()) / 
+                        ((float) height * (float) lastCapturedFrame.getWidth())
+                    , 1.0f);;
+                float verticalScale = Math.max(
+                        ((float) height * (float) lastCapturedFrame.getWidth()) / 
+                        ((float) width * (float) lastCapturedFrame.getHeight())
+                    , 1.0f);;
+                gl2.glOrtho(-horizontalScale, horizontalScale, -verticalScale, verticalScale, -1.0, 1.0);
+                
+                // Render capture
                 renderBackgroundImage(glad);
+                // Render overlays
                 renderTiles(glad);
+                // Restore projection
+                gl2.glMatrixMode(GL2.GL_PROJECTION);
+                gl2.glPopMatrix();
+                // Picken-pack
                 drawTeapot(glad);
                 break;
         }
@@ -142,7 +148,7 @@ public class GLRenderer implements GLEventListener {
         gl2.glMatrixMode(GL2.GL_MODELVIEW);
         gl2.glPushMatrix();
         gl2.glLoadIdentity();
-        drawTexture(gl2, texture);
+        drawTexture(gl2, texture, false);
         gl2.glPopMatrix();
     }
     
@@ -150,7 +156,7 @@ public class GLRenderer implements GLEventListener {
         GL2 gl2 = glad.getGL().getGL2();
         Texture backgroundTexture;
         backgroundTexture = AWTTextureIO.newTexture(gl2.getGLProfile(), lastCapturedFrame, false);
-        drawTexture(gl2, backgroundTexture);
+        drawTexture(gl2, backgroundTexture, true);
         backgroundTexture.destroy(gl2);
     }
     
@@ -159,7 +165,7 @@ public class GLRenderer implements GLEventListener {
         // Reset transformations
         gl2.glMatrixMode(GL2.GL_MODELVIEW);
         gl2.glPushMatrix();
-        // invert Y axis sign to account for image coordinates to display coordinates
+        // invert Y axis sign to account for image coordinates to model coordinates
         gl2.glTranslatef(-1.0f, -1.0f * -1.0f, 0.0f);
         gl2.glScalef(2.0f/(float)width, -1.0f * 2.0f/(float)height, 1.0f);
         
@@ -213,17 +219,21 @@ public class GLRenderer implements GLEventListener {
 
     }
     
-    private void drawTexture(GL2 gl2, Texture texture) {        
+    private void drawTexture(GL2 gl2, Texture texture, boolean stretch) {        
         // Reset transformations
-        gl2.glMatrixMode(GL2.GL_MODELVIEW);
-        gl2.glPushMatrix();
+//        gl2.glMatrixMode(GL2.GL_MODELVIEW);
+//        gl2.glPushMatrix();
         
         // Prepare texture
         texture.enable(gl2);
         texture.bind(gl2);
         
-        float horizontalRatio = (float) texture.getWidth() / (float) width;
-        float verticalRatio = (float) texture.getHeight() / (float) height;
+        float horizontalRatio = 1.0f;
+        float verticalRatio = 1.0f;
+        if (!stretch) {
+            horizontalRatio = (float) texture.getWidth() / (float) width;
+            verticalRatio = (float) texture.getHeight() / (float) height;
+        }
         
         // Render the texture
         gl2.glBegin(GL2.GL_QUADS);
@@ -239,7 +249,7 @@ public class GLRenderer implements GLEventListener {
         
         // Restore state
         texture.disable(gl2);
-        gl2.glPopMatrix();
+//        gl2.glPopMatrix();
     }
     
     private void drawTeapot(GLAutoDrawable glad) {
@@ -254,8 +264,11 @@ public class GLRenderer implements GLEventListener {
         // Set transformations
         gl2.glMatrixMode(GL2.GL_MODELVIEW);
         gl2.glPushMatrix();
-        gl2.glLoadIdentity(); // remove mirror
-        gl2.glTranslatef(0.9f * hor, -0.9f * ver, -2.0f); // Push the teapot back into the frustum
+//        gl2.glLoadIdentity(); // remove mirror
+        // Push the teapot back into the frustum
+        gl2.glTranslatef(0.0f, 0.0f, -2.0f);
+        // Position the object in the screen
+        gl2.glTranslatef(0.9f * hor, -0.9f * ver, 0.0f);
         
         // Set coloring
         gl2.glPushAttrib(
