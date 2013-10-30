@@ -110,12 +110,14 @@ public class Controller extends EventSource {
     }
 
     private synchronized void processFrame() {
-        camera.capture();
-        fireEvent(Events.ON_FRAME_CAPTURED);
-        if (!paused) {
-            model.update(camera.getFrameWidth(), camera.getFrameHeight(), 
-                    markerDetector.detect(camera.getIplImage(), false));
-            fireEvent(Events.ON_FRAME_PROCESSED);
+        if (camera.getActiveDevice() != -1) {
+            camera.capture();
+            fireEvent(Events.ON_FRAME_CAPTURED);
+            if (!paused) {
+                model.update(camera.getFrameWidth(), camera.getFrameHeight(), 
+                        markerDetector.detect(camera.getIplImage(), false));
+                fireEvent(Events.ON_FRAME_PROCESSED);
+            }
         }
     }
 }

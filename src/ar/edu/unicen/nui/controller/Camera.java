@@ -68,10 +68,12 @@ public final class Camera {
     }
 
     public synchronized void release() {
-        try {
-            devices.get(activeDevice).stop();
-        } catch (FrameGrabber.Exception ex) {
-            Logger.getLogger(Camera.class.getName()).log(Level.SEVERE, "Failed to release camera");
+        if (activeDevice != -1) {
+            try {
+                devices.get(activeDevice).stop();
+            } catch (FrameGrabber.Exception ex) {
+                Logger.getLogger(Camera.class.getName()).log(Level.SEVERE, "Failed to release camera");
+            }
         }
         devices.clear();
         activeDevice = -1;
@@ -106,6 +108,8 @@ public final class Camera {
                 break;
             }
         };
+        devices.clear();
+
         
         Logger.getLogger(Camera.class.getName()).log(Level.INFO, "Detected " + deviceCount() + " cameras.");
 
