@@ -75,6 +75,7 @@ public final class Camera {
                 Logger.getLogger(Camera.class.getName()).log(Level.SEVERE, "Failed to release camera");
             }
         }
+        devices.clear();
         activeDevice = -1;
     }
     
@@ -107,8 +108,6 @@ public final class Camera {
                 break;
             }
         };
-        devices.clear();
-
         
         Logger.getLogger(Camera.class.getName()).log(Level.INFO, "Detected " + deviceCount() + " cameras.");
 
